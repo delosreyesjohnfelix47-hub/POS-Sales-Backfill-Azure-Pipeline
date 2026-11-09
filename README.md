@@ -1,5 +1,5 @@
 # POS-Sales-Backfill-Azure-Pipeline
-Ingesting On-Premises SQL Server data using Azure Data Factory, Adls Gen2, Azure Databricks Unity Catalog with CI/CD
+Ingesting On-Premises SQL Server 2023 to 2026 data using Azure Data Factory, Adls Gen2, Azure Databricks Unity Catalog with CI/CD
 
 Azure Services Used:
 | Tool | Purpose |
