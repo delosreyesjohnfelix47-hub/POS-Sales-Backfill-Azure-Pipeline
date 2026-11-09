@@ -40,7 +40,7 @@ Secret: On-prem SqlServer password
 
 Azure Data Factory Process:
 1. Look Up Activity Azure Sql Watermark Table to get tables that are still pending for specific year month.
-2. For Each Activity loops through the 3 tables in parallel (dtl_order, dtl_payment, hdr_payment)
+2. For Each Activity loops through the 3 tables in parallel (dtl_order, dtl_payment, hdr_invoice)
 3. Look Up Activity to check how many row does the on-prem table have.
 4. If Condition Activity. Check look up activity of on-prem table if have rows.
   - if true
@@ -62,7 +62,7 @@ Raw:
 
 ├──sales/dtl_order/year=2023/month=01/dtl_order_2025_01.parquet
 
-├──sales/dtl_paymnt/year=2023/month=01/dtl_payment_2025_01.parquet
+├──sales/dtl_payment/year=2023/month=01/dtl_payment_2025_01.parquet
 
 └──sales/hdr_invoice/year=2023/month=01/hdr_invoice_2025_01.parquet
 
@@ -72,7 +72,7 @@ Bronze:
 
 ├──sales/dtl_payment/year=2023/month=01/day=01/.parquet
 
-└──sales/hdr_invoice/year=2023/month=01/.parquet
+└──sales/hdr_invoice/year=2023/month=01/day=01/.parquet
 
 Silver:
 
@@ -80,7 +80,7 @@ Silver:
 
 ├──sales/dtl_payment/year=2023/month=01/day=01/.parquet
 
-└──sales/hdr_invoice/year=2023/month=01/.parquet
+└──sales/hdr_invoice/year=2023/month=01/day=01/.parquet
 
 Gold:
 
