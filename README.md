@@ -35,6 +35,7 @@ Azure SQL Water Mark Table:
 | sales | hdr_invoice | 2024 | 02 | 134 | Success |
 
 Azure Key Vault:
+
 Secret: On-prem SqlServer password
 
 Azure Data Factory Process:
