@@ -1,0 +1,72 @@
+trigger:
+  - main
+
+pool:
+  vmImage: "windows-latest"
+#test
+stages:
+#build ARM Template
+- stage: BuildARMTemplate
+  displayName: "Build ARM Template"
+
+  variables:
+  - group: DEV_ADF_PL_Possales_Backfill_Variable
+
+  jobs:
+  - job: BuildARM
+    displayName: "Build ARM"
+    steps:
+    - template: ci_build.yaml
+      parameters:
+        DataFactory: $(DataFactory)
+        ResourceGroup: $(ResourceGroup)
+        SubscriptionId: $(SubscriptionId)
+
+#DEPLOY TO DEV
+- stage: DeployToDEV
+  dependsOn: BuildARMTemplate
+  condition: succeeded()
+  displayName: "Deploy To DEV"
+
+  variables:
+  - group: DEV_ADF_PL_Possales_Backfill_Variable
+
+  jobs:
+  - job: DeployToDEV
+    displayName: "Deploy To DEV"
+    steps:
+    - template: cd_deploy.yaml
+      parameters:
+        AzureResourceManagerConnection: POSRG-Service-Connection
+        DataFactory: $(DataFactory)
+        SubscriptionId: $(SubscriptionId)
+        ResourceGroup: $(ResourceGroup)
+        Environment: dev
+
+#DEPLOY TO QA with approval gate
+- stage: DeployToQA
+  dependsOn: BuildARMTemplate
+  condition: succeeded()
+  displayName: "Deploy To QA"
+
+  variables:
+  - group: QA_ADF_PL_Possales_Backfill_Variable
+  - name: deployEnvironment
+    value: 'qa'
+
+  jobs:
+  - deployment: DeployToQA
+    displayName: "Deploy To QA"
+    environment: 'qa_approval'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - template: cd_deploy.yaml
+            parameters:
+              AzureResourceManagerConnection: POSRG-Service-Connection
+              DataFactory: $(DataFactory)
+              SubscriptionId: $(SubscriptionId)
+              ResourceGroup: $(ResourceGroup)
+              Environment: qa

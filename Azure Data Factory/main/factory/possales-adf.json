@@ -1,0 +1,15 @@
+{
+	"name": "possales-adf",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastasia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "<principalId>",
+		"tenantId": "<tenantId>"
+	}
+}

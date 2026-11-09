@@ -1,0 +1,45 @@
+{
+	"name": "DS_ADLS_Landing",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_Adlsgen2",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"Param_FolderTableName": {
+				"type": "string"
+			},
+			"Param_Year": {
+				"type": "string"
+			},
+			"Param_Month": {
+				"type": "string"
+			},
+			"Param_FileName": {
+				"type": "string"
+			},
+			"Param_FolderSchemaName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@concat(dataset().Param_FileName,'.parquet')",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@concat(\n    dataset().Param_FolderSchemaName, '/',\n    dataset().Param_FolderTableName, '/',\n    'Year=',dataset().Param_Year, '/',\n    'Month=',dataset().Param_Month, '/'\n)",
+					"type": "Expression"
+				},
+				"container": "raw"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,45 @@
+parameters:
+- name: DataFactory
+  type: string
+- name: ResourceGroup
+  type: string
+- name: SubscriptionId
+  type: string
+
+steps:
+#install node
+- task: UseNode@1	
+  inputs:
+    version: '20.x'
+  displayName: 'Install Node.js'
+
+#install npm
+- task: Npm@1
+  inputs:
+    command: 'install'
+    workingDir: '$(Build.Repository.LocalPath)'
+    verbose: true
+  displayName: 'Install npm package'
+
+#validate arm template
+- task: Npm@1
+  inputs:
+    command: 'custom'
+    workingDir: '$(Build.Repository.LocalPath)'
+    customCommand: 'run build validate $(Build.Repository.LocalPath)/ /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroup)/providers/Microsoft.DataFactory/factories/$(DataFactory)'
+  displayName: 'Validate'
+
+#validate and generate arm template
+- task: Npm@1
+  inputs:
+    command: 'custom'
+    workingDir: '$(Build.Repository.LocalPath)'
+    customCommand: 'run build export $(Build.Repository.LocalPath)/ /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroup)/providers/Microsoft.DataFactory/factories/$(DataFactory) "ArmTemplate"'
+  displayName: 'Validate and Generate ARM template'
+
+#publish the artifacts
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Build.Repository.LocalPath)/ArmTemplate' 
+    artifact: 'ARMTemplate'
+    publishLocation: 'pipeline'

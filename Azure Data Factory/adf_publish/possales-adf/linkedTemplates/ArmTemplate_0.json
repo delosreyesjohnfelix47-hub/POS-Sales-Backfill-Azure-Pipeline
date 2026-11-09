@@ -1,0 +1,786 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "<AzureDataFactoryName>"
+		},
+		"LS_Adlsgen2_properties_typeProperties_serviceEndpoint": {
+			"type": "string",
+			"defaultValue": "<StorageAccountUrl>"
+		},
+		"LS_AzureDataBricks_properties_typeProperties_domain": {
+			"type": "string",
+			"defaultValue": "<AzureDatabricksUrl>"	
+		},
+		"LS_AzureDataBricks_properties_typeProperties_workspaceResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/<SubscriptionId>/resourceGroups/<ResourceGroupName>/providers/Microsoft.Databricks/workspaces/<AzureDatabricksWorkspace>"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "<AzureKeyVaultUrl>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "<AzureSqlServerName>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "<AzureSqlDatabaseName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "<On-PremSqlServerName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "<On-PremDatabaseName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "<On-PremUserName>"
+		},
+		"PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId": {
+			"type": "string",
+			"defaultValue": "<AzureDataBricksJobId>"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/default')]",
+			"type": "Microsoft.DataFactory/factories/globalparameters",
+			"apiVersion": "2018-06-01",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_Adlsgen2')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"serviceEndpoint": "[parameters('LS_Adlsgen2_properties_typeProperties_serviceEndpoint')]",
+					"accountKind": "StorageV2"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureDataBricks')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "[parameters('LS_AzureDataBricks_properties_typeProperties_domain')]",
+					"authentication": "MSI",
+					"workspaceResourceId": "[parameters('LS_AzureDataBricks_properties_typeProperties_workspaceResourceId')]",
+					"newClusterNodeType": "Standard_DS3_v2",
+					"newClusterNumOfWorker": "1",
+					"newClusterVersion": "18.2.x-scala2.13",
+					"newClusterDriverNodeType": "Standard_D4ds_v5",
+					"clusterOption": "Fixed",
+					"newClusterInitScripts": [],
+					"dataSecurityMode": "SINGLE_USER"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureKeyVault')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('LS_AzureKeyVault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_WaterMarkServer')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('LS_WaterMarkServer_properties_typeProperties_server')]",
+					"database": "[parameters('LS_WaterMarkServer_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SystemAssignedManagedIdentity"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/on-prem-integrationRuntime')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "SelfHosted",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Landing')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_Adlsgen2",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Param_FolderTableName": {
+						"type": "string"
+					},
+					"Param_Year": {
+						"type": "string"
+					},
+					"Param_Month": {
+						"type": "string"
+					},
+					"Param_FileName": {
+						"type": "string"
+					},
+					"Param_FolderSchemaName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@concat(dataset().Param_FileName,'.parquet')",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@concat(\n    dataset().Param_FolderSchemaName, '/',\n    dataset().Param_FolderTableName, '/',\n    'Year=',dataset().Param_Year, '/',\n    'Month=',dataset().Param_Month, '/'\n)",
+							"type": "Expression"
+						},
+						"container": "raw"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_Adlsgen2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_WaterMarkTableName')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_WaterMarkServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_WaterMarkServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_OnpremSQLServer')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('LS_OnpremSQLServer_properties_typeProperties_server')]",
+					"database": "[parameters('LS_OnpremSQLServer_properties_typeProperties_database')]",
+					"encrypt": "optional",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('LS_OnpremSQLServer_properties_typeProperties_userName')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_AzureKeyVault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "POSServerPassword"
+					}
+				},
+				"connectVia": {
+					"referenceName": "on-prem-integrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/integrationRuntimes/on-prem-integrationRuntime')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureKeyVault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_OnPremSQLData')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_OnpremSQLServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_OnpremSQLServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Possales_Backfill')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "LU_ListWaterMarkBatchTable",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "select top 3 Schema_Name, Table_Name, Year_Batch, Month_Batch\nfrom dbo.<WaterMarkTableName>\nwhere Raw_Status = 'Pending'\n  and Year_Batch = (\n      select min(Year_Batch) \n      from dbo.<WaterMarkTableName> \n      where Raw_Status = 'Pending'\n  )\n  and Month_Batch = (\n      select min(Month_Batch) \n      from dbo.<WaterMarkTableName> \n      where Raw_Status = 'Pending'\n        and Year_Batch = (\n            select min(Year_Batch) \n            from dbo.<WaterMarkTableName> \n            where Raw_Status = 'Pending'\n        )\n  )\norder by Table_Name",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_WaterMarkTableName",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "FE_SchemaTableName",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "LU_ListWaterMarkBatchTable",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('LU_ListWaterMarkBatchTable').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 3,
+							"activities": [
+								{
+									"name": "IF_OnpremHasData",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "LU_OnPremDataExist",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@greater(int(activity('LU_OnpremDataExist').output.firstRow.row_count), 0)",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
+											{
+												"name": "SP_NoData",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[dbo].<StoredProcedureName>",
+													"storedProcedureParameters": {
+														"sp_param_schema_name": {
+															"value": {
+																"value": "@item().Schema_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_table_name": {
+															"value": {
+																"value": "@item().Table_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_year": {
+															"value": {
+																"value": "@item().Year_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_month": {
+															"value": {
+																"value": "@item().Month_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_status": {
+															"value": "No Data",
+															"type": "String"
+														},
+														"sp_param_row_count": {
+															"value": {
+																"value": "@activity('LU_OnPremDataExist').output.firstRow.row_count",
+																"type": "Expression"
+															},
+															"type": "Int64"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_WaterMarkServer",
+													"type": "LinkedServiceReference"
+												}
+											}
+										],
+										"ifTrueActivities": [
+											{
+												"name": "CD_GetOnPremSQLData",
+												"type": "Copy",
+												"dependsOn": [
+													{
+														"activity": "SP_Processing",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.00:15:00",
+													"retry": 3,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "SqlServerSource",
+														"sqlReaderQuery": {
+															"value": "@concat('Select * from ', item().Schema_Name, '.' ,item().Table_Name, ' where year(txdate)=''', item().Year_Batch, ''' and month(txdate)=''', item().Month_Batch, '''')",
+															"type": "Expression"
+														},
+														"queryTimeout": "02:00:00",
+														"partitionOption": "None"
+													},
+													"sink": {
+														"type": "ParquetSink",
+														"storeSettings": {
+															"type": "AzureBlobStorageWriteSettings"
+														},
+														"formatSettings": {
+															"type": "ParquetWriteSettings"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "DS_OnPremSQLData",
+														"type": "DatasetReference",
+														"parameters": {}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "DS_ADLS_Landing",
+														"type": "DatasetReference",
+														"parameters": {
+															"Param_FolderTableName": {
+																"value": "@item().Table_Name",
+																"type": "Expression"
+															},
+															"Param_Year": {
+																"value": "@item().Year_Batch",
+																"type": "Expression"
+															},
+															"Param_Month": {
+																"value": "@item().Month_Batch",
+																"type": "Expression"
+															},
+															"Param_FileName": {
+																"value": "@concat(item().Table_Name, '_', item().Year_Batch, '_' ,item().Month_Batch)",
+																"type": "Expression"
+															},
+															"Param_FolderSchemaName": {
+																"value": "@item().Schema_Name",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											},
+											{
+												"name": "SP_Success",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "CD_GetOnPremSQLData",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[dbo].<StoredProcedureName>",
+													"storedProcedureParameters": {
+														"sp_param_schema_name": {
+															"value": {
+																"value": "@item().Schema_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_table_name": {
+															"value": {
+																"value": "@item().Table_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_year": {
+															"value": {
+																"value": "@item().Year_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_month": {
+															"value": {
+																"value": "@item().Month_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_status": {
+															"value": "Success",
+															"type": "String"
+														},
+														"sp_param_row_count": {
+															"value": {
+																"value": "@activity('CD_GetOnPremSQLData').output.rowsCopied",
+																"type": "Expression"
+															},
+															"type": "Int64"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_WaterMarkServer",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "SP_Failed",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "CD_GetOnPremSQLData",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[dbo].<StoredProcedureName>",
+													"storedProcedureParameters": {
+														"sp_param_schema_name": {
+															"value": {
+																"value": "@item().Schema_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_table_name": {
+															"value": {
+																"value": "@item().Table_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_year": {
+															"value": {
+																"value": "@item().Year_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_month": {
+															"value": {
+																"value": "@item().Month_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_status": {
+															"value": "Failed",
+															"type": "String"
+														},
+														"sp_param_row_count": {
+															"value": {
+																"value": "@activity('LU_OnPremDataExist').output.firstRow.row_count",
+																"type": "Expression"
+															},
+															"type": "Int64"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_WaterMarkServer",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "SP_Processing",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[dbo].<StoredProcedureName>",
+													"storedProcedureParameters": {
+														"sp_param_schema_name": {
+															"value": {
+																"value": "@item().Schema_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_table_name": {
+															"value": {
+																"value": "@item().Table_Name",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_year": {
+															"value": {
+																"value": "@item().Year_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_month": {
+															"value": {
+																"value": "@item().Month_Batch",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"sp_param_status": {
+															"value": "Processing",
+															"type": "String"
+														},
+														"sp_param_row_count": {
+															"value": {
+																"value": "0",
+																"type": "Expression"
+															},
+															"type": "Int64"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_WaterMarkServer",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "LU_OnPremDataExist",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select count(*) as row_count from ', item().Schema_Name, '.', item().Table_Name, ' where year(TxDate)=',item().Year_Batch , ' and month(TxDate)=', item().Month_Batch)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "DS_OnPremSQLData",
+											"type": "DatasetReference",
+											"parameters": {}
+										},
+										"firstRowOnly": true
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "IF_WaterMarkTableHasPending",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "FE_SchemaTableName",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(length(activity('LU_ListWaterMarkBatchTable').output.value), 0)",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Possales_Backfill_Job",
+									"type": "DatabricksJob",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"jobId": "[parameters('PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId')]",
+										"jobParameters": {
+											"NB_Year": {
+												"value": "@activity('LU_ListWaterMarkBatchTable').output.value[0].Year_Batch",
+												"type": "Expression"
+											},
+											"NB_Month": {
+												"value": "@activity('LU_ListWaterMarkBatchTable').output.value[0].Month_Batch",
+												"type": "Expression"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_AzureDataBricks",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Wait1",
+						"type": "Wait",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"waitTimeInSeconds": 1
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-02T07:58:49Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_WaterMarkTableName')]",
+				"[concat(variables('factoryId'), '/datasets/DS_OnPremSQLData')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureDataBricks')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_WaterMarkServer')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Landing')]"
+			]
+		}
+	]
+}

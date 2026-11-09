@@ -1,0 +1,15 @@
+{
+	"name": "LS_WaterMarkServer",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "<AzureSQlServerName>",
+			"database": "<AzureSQLServerDatabaseName>",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "SystemAssignedManagedIdentity"
+		}
+	}
+}

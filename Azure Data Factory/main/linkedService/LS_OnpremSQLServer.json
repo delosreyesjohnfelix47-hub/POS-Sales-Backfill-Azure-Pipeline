@@ -1,0 +1,28 @@
+{
+	"name": "LS_OnpremSQLServer",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "<On-PremSqlServerName>",
+			"database": "<On-PremDatabaseName>",
+			"encrypt": "optional",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "<On-PremUserName>",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_AzureKeyVault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "POSServerPassword"
+			}
+		},
+		"connectVia": {
+			"referenceName": "on-prem-integrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

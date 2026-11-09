@@ -1,0 +1,292 @@
+parameters:
+- name: AzureResourceManagerConnection
+  type: string
+- name: DataFactory
+  type: string
+- name: ResourceGroup
+  type: string
+- name: SubscriptionId
+  type: string
+- name: Environment
+  type: string
+#testsss
+steps:
+- task: DownloadPipelineArtifact@2
+  displayName: "Download The ADF Artifact"
+  inputs:
+    buildType: "current"
+    artifactName: "ARMTemplate"
+    targetpath: "$(Pipeline.Workspace)/ARMTemplate"
+
+- task: AzurePowerShell@5
+  displayName: "Stop Current ADF Triggers"
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    pwsh: true
+    azurePowerShellVersion: "LatestVersion"
+    ScriptType: "FilePath"
+    ScriptPath: "$(Pipeline.WorkSpace)/ARMTemplate/PrePostDeploymentScript.ps1"
+    scriptArguments:
+      -ArmTemplate "$(Pipeline.Workspace)/ARMTemplate/ARMTemplateForFactory.json"
+      -ArmTemplateParameters $(Build.Repository.LocalPath)/cicd/ARMParams/${{ parameters.Environment }}.json
+      -ResourceGroupName ${{ parameters.ResourceGroup }}
+      -DataFactoryName ${{ parameters.DataFactory }}
+      -predeployment $true
+      -deleteDeployment $false
+
+- task: AzureResourceManagerTemplateDeployment@3
+  displayName: "Deploy ADF ARM Template"
+  inputs:
+    deploymentScope: 'ResourceGroup'
+    azureResourceManagerConnection: ${{ parameters.AzureResourceManagerConnection }}
+    subscriptionId: ${{ parameters.SubscriptionId }}
+    action: 'Create Or Update Resource Group'
+    resourceGroupName: ${{ parameters.ResourceGroup }}
+    location: '$(resource_group_location)'
+    templateLocation: 'Linked artifact'
+    csmFile: '$(Pipeline.Workspace)/ARMTemplate/ARMTemplateForFactory.json'
+    csmParametersFile: '$(Build.Repository.LocalPath)/cicd/ARMParams/${{ parameters.Environment }}.json'
+    deploymentMode: 'Incremental'
+    overrideParameters: >
+      -factoryName "$(DataFactory)"
+      -LS_Adlsgen2_properties_typeProperties_serviceEndpoint "$(storage_account_url)"
+      -LS_AzureKeyVault_properties_typeProperties_baseUrl "$(key_vault_url)"
+      -LS_OnpremSQLServer_properties_typeProperties_server "$(onprem_server)"
+      -LS_OnpremSQLServer_properties_typeProperties_database "$(onprem_database)"
+      -LS_OnpremSQLServer_properties_typeProperties_userName "$(onprem_username)"
+      -LS_WaterMarkServer_properties_typeProperties_server "$(watermark_server)"
+      -LS_WaterMarkServer_properties_typeProperties_database "$(watermark_database)"
+      -LS_AzureDataBricks_properties_typeProperties_domain "$(databricks_workspace_url)"
+      -LS_AzureDataBricks_properties_typeProperties_workspaceResourceId "$(databricks_workspace_resource_id)"
+      -PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId "$(databricks_job_id)"
+
+- task: AzureResourceManagerTemplateDeployment@3
+  displayName: "Deploy ADF Alerts To QA"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    deploymentScope: 'ResourceGroup'
+    azureResourceManagerConnection: ${{ parameters.AzureResourceManagerConnection }}
+    subscriptionId: ${{ parameters.SubscriptionId }}
+    action: 'Create Or Update Resource Group'
+    resourceGroupName: ${{ parameters.ResourceGroup }}
+    location: '$(resource_group_location)'
+    templateLocation: 'Linked artifact'
+    csmFile: '$(Build.Repository.LocalPath)/cicd/alerts.json'
+    deploymentMode: 'Incremental'
+    overrideParameters: >
+      -factoryName "$(DataFactory)"
+      -subscriptionId "${{ parameters.SubscriptionId }}"
+      -resourceGroupName "${{ parameters.ResourceGroup }}"
+      -alertEmailAddress "$(alertEmailAddress)"
+
+
+#Storage account task
+- task: AzureCLI@2
+  displayName: "Setup Containers in QA"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      $containers=@("bronze", "silver", "gold", "possalesmetastore", "raw", "quarantine", "config")
+
+      foreach ($container in $containers) {
+        Write-Host "Creating container: $container"
+        az storage container create `
+          --name "$container" `
+          --account-name $(storage_account) `
+          --auth-mode login
+        Write-Host "Done: $container"
+      }
+
+      Write-Host "Copying databricks_config.yaml to QA"
+
+      az storage blob download `
+        --account-name $(storage_account_dev) `
+        --container-name config `
+        --name databricks_config.yaml `
+        --file ./databricks_config.yaml `
+        --auth-mode login
+
+      az storage blob upload `
+        --account-name $(storage_account) `
+        --container-name config `
+        --name databricks_config.yaml `
+        --file ./databricks_config.yaml `
+        --auth-mode login `
+        --overwrite
+
+      Write-Host "Done: databricks_config.yaml copied to QA"
+
+# Key Vault task
+- task: AzureCLI@2
+  displayName: "Copy Key Vault Secrets from DEV to QA"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      Write-Host "Copying Key Vault secrets from DEV to QA"
+
+      $secrets = az keyvault secret list `
+        --vault-name $(key_vault_dev) `
+        --query "[].name" `
+        --output tsv
+
+      foreach ($secret in $secrets) {
+        Write-Host  "Copying secret: $secret"
+
+        $value = az keyvault secret show `
+          --vault-name $(key_vault_dev) `
+          --name "$secret" `
+          --query "value" `
+          --output tsv
+
+        az keyvault secret set `
+          --vault-name $(key_vault_qa) `
+          --name "$secret" `
+          --value "$value"
+
+        Write-Host "Done: $secret"
+      }
+
+      Write-Host "All secrets copied to QA Key Vault"
+#create watermark database task
+- task: AzureCLI@2
+  displayName: "Create QA Watermark Database"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      Write-Host "Creating QA watermark database if not exists"
+      az sql db create `
+        --resource-group ${{ parameters.ResourceGroup }} `
+        --server $(watermark_server_name) `
+        --name $(watermark_database) `
+        --edition Basic `
+        --service-objective Basic `
+        --max-size 100MB
+      Write-Host "Done: database created"
+
+- task: AzureCLI@2
+  displayName: "Grant Service Principal Access to QA Watermark Database"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      Write-Host "Setting service principal as AAD admin on QA SQL Server"
+      az sql server ad-admin create `
+        --resource-group ${{ parameters.ResourceGroup }} `
+        --server $(watermark_server_name) `
+        --display-name $(service_principal_name) `
+        --object-id $(service_principal_object_id)
+      Write-Host "Done: access granted"
+
+#create watermark table task
+- task: SqlAzureDacpacDeployment@1
+  displayName: "Setup Watermark Table on QA SQL DB"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    AuthenticationType: 'servicePrincipal'
+    ServerName: '$(watermark_server)'
+    DatabaseName: '$(watermark_database)'
+    deployType: 'SqlTask'
+    SqlFile: '$(Build.Repository.LocalPath)/sql/setup_watermark.sql'
+    IpDetectionMethod: 'AutoDetect'
+
+- task: AzurePowerShell@5
+  displayName: "Grant QA ADF Access to Watermark Database"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    pwsh: true
+    azurePowerShellVersion: "LatestVersion"
+    ScriptType: "InlineScript"
+    Inline: |
+      $token = (Get-AzAccessToken -ResourceUrl "https://database.windows.net").Token
+      $adf = "${{ parameters.DataFactory }}"
+
+      $q1 = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = '$adf') BEGIN CREATE USER [$adf] FROM EXTERNAL PROVIDER END"
+      $q2 = "GRANT SELECT ON dbo.<WaterMarkTableName> TO [$adf]"
+      $q3 = "GRANT INSERT ON dbo.<WaterMarkTableName> TO [$adf]"
+      $q4 = "GRANT UPDATE ON dbo.<WaterMarkTableName> TO [$adf]"
+      $q5 = "GRANT EXECUTE ON dbo.<StoredProcedureName> TO [$adf]"
+
+      foreach ($q in @($q1, $q2, $q3, $q4, $q5)) {
+        Invoke-Sqlcmd `
+          -ServerInstance "$(watermark_server)" `
+          -Database "$(watermark_database)" `
+          -AccessToken $token `
+          -Query $q
+      }
+
+      Write-Host "Done - QA ADF granted access to WaterMark_Batch_POS and SP_Update_WaterMark_Batch_POS"
+
+- task: AzurePowerShell@5
+  displayName: "Start ADF Triggers"
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    pwsh: true
+    azurePowerShellVersion: "LatestVersion"
+    ScriptType: "FilePath"
+    ScriptPath: "$(Pipeline.WorkSpace)/ARMTemplate/PrePostDeploymentScript.ps1"
+    scriptArguments:
+      -ArmTemplate "$(Pipeline.Workspace)/ARMTemplate/ARMTemplateForFactory.json"
+      -ArmTemplateParameters $(Build.Repository.LocalPath)/cicd/ARMParams/${{ parameters.Environment }}.json
+      -ResourceGroupName ${{ parameters.ResourceGroup }}
+      -DataFactoryName ${{ parameters.DataFactory }}
+      -predeployment $false
+      -deleteDeployment $true
+
+# Deploys on-prem-sharedIR
+- task: AzureResourceManagerTemplateDeployment@3
+  displayName: "Deploy SharedIR To QA"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    deploymentScope: 'ResourceGroup'
+    azureResourceManagerConnection: ${{ parameters.AzureResourceManagerConnection }}
+    subscriptionId: ${{ parameters.SubscriptionId }}
+    action: 'Create Or Update Resource Group'
+    resourceGroupName: ${{ parameters.ResourceGroup }}
+    location: '$(resource_group_location)'
+    templateLocation: 'Linked artifact'
+    csmFile: '$(Build.Repository.LocalPath)/sharedIR.json'
+    deploymentMode: 'Incremental'
+    overrideParameters: >
+      -factoryName "$(DataFactory)"
+      -sharedIRResourceId "$(shared_ir_resource_id)"
+
+# Updates LS_OnpremSQLServer connectVia to use on-prem-sharedIR
+- task: AzurePowerShell@5
+  displayName: "Update LS_OnpremSQLServer connectVia To SharedIR"
+  condition: and(succeeded(), eq('${{ parameters.Environment }}', 'qa'))
+  inputs:
+    azureSubscription: ${{ parameters.AzureResourceManagerConnection }}
+    pwsh: true
+    azurePowerShellVersion: "LatestVersion"
+    ScriptType: "InlineScript"
+    Inline: |
+      # Build API path
+      $subId   = (Get-AzContext).Subscription.Id
+      $rg      = "${{ parameters.ResourceGroup }}"
+      $adf     = "${{ parameters.DataFactory }}"
+      $apiPath = "/subscriptions/$subId/resourceGroups/$rg/providers/Microsoft.DataFactory/factories/$adf/linkedservices/LS_OnpremSQLServer?api-version=2018-06-01"
+
+      # Read current linked service
+      $current = (Invoke-AzRestMethod -Method GET -Path $apiPath).Content | ConvertFrom-Json -Depth 20
+
+      # Update connectVia only
+      $current.properties.connectVia.referenceName = "on-prem-sharedIR"
+
+      # Save back
+      $body = $current | ConvertTo-Json -Depth 20
+      Invoke-AzRestMethod -Method PUT -Path $apiPath -Payload $body
+
+      Write-Host "Done - LS_OnpremSQLServer now uses on-prem-sharedIR"

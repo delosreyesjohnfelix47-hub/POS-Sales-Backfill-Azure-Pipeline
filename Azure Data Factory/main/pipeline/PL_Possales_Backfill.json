@@ -1,0 +1,506 @@
+{
+	"name": "PL_Possales_Backfill",
+	"properties": {
+		"activities": [
+			{
+				"name": "LU_ListWaterMarkBatchTable",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "select top 3 Schema_Name, Table_Name, Year_Batch, Month_Batch\nfrom dbo.<WatermarkTableName>\nwhere Raw_Status = 'Pending'\n  and Year_Batch = (\n      select min(Year_Batch) \n      from dbo.<WatermarkTableName> \n      where Raw_Status = 'Pending'\n  )\n  and Month_Batch = (\n      select min(Month_Batch) \n      from dbo.<WatermarkTableName> \n      where Raw_Status = 'Pending'\n        and Year_Batch = (\n            select min(Year_Batch) \n            from dbo.<WatermarkTableName> \n            where Raw_Status = 'Pending'\n        )\n  )\norder by Table_Name",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_WaterMarkTableName",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "FE_SchemaTableName",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LU_ListWaterMarkBatchTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LU_ListWaterMarkBatchTable').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 3,
+					"activities": [
+						{
+							"name": "IF_OnpremHasData",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "LU_OnPremDataExist",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(int(activity('LU_OnpremDataExist').output.firstRow.row_count), 0)",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "SP_NoData",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].<StoredProcedureName>",
+											"storedProcedureParameters": {
+												"sp_param_schema_name": {
+													"value": {
+														"value": "@item().Schema_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_table_name": {
+													"value": {
+														"value": "@item().Table_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_year": {
+													"value": {
+														"value": "@item().Year_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_month": {
+													"value": {
+														"value": "@item().Month_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_status": {
+													"value": "No Data",
+													"type": "String"
+												},
+												"sp_param_row_count": {
+													"value": {
+														"value": "@activity('LU_OnPremDataExist').output.firstRow.row_count",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_WaterMarkServer",
+											"type": "LinkedServiceReference"
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "CD_GetOnPremSQLData",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "SP_Processing",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.00:15:00",
+											"retry": 3,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "@concat('Select * from ', item().Schema_Name, '.' ,item().Table_Name, ' where year(txdate)=''', item().Year_Batch, ''' and month(txdate)=''', item().Month_Batch, '''')",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobStorageWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "DS_OnPremSQLData",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "DS_ADLS_Landing",
+												"type": "DatasetReference",
+												"parameters": {
+													"Param_FolderTableName": {
+														"value": "@item().Table_Name",
+														"type": "Expression"
+													},
+													"Param_Year": {
+														"value": "@item().Year_Batch",
+														"type": "Expression"
+													},
+													"Param_Month": {
+														"value": "@item().Month_Batch",
+														"type": "Expression"
+													},
+													"Param_FileName": {
+														"value": "@concat(item().Table_Name, '_', item().Year_Batch, '_' ,item().Month_Batch)",
+														"type": "Expression"
+													},
+													"Param_FolderSchemaName": {
+														"value": "@item().Schema_Name",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "SP_Success",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "CD_GetOnPremSQLData",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].<StoredProcedureName>",
+											"storedProcedureParameters": {
+												"sp_param_schema_name": {
+													"value": {
+														"value": "@item().Schema_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_table_name": {
+													"value": {
+														"value": "@item().Table_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_year": {
+													"value": {
+														"value": "@item().Year_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_month": {
+													"value": {
+														"value": "@item().Month_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_status": {
+													"value": "Success",
+													"type": "String"
+												},
+												"sp_param_row_count": {
+													"value": {
+														"value": "@activity('CD_GetOnPremSQLData').output.rowsCopied",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_WaterMarkServer",
+											"type": "LinkedServiceReference"
+										}
+									},
+									{
+										"name": "SP_Failed",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "CD_GetOnPremSQLData",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].<StoredProcedureName>",
+											"storedProcedureParameters": {
+												"sp_param_schema_name": {
+													"value": {
+														"value": "@item().Schema_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_table_name": {
+													"value": {
+														"value": "@item().Table_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_year": {
+													"value": {
+														"value": "@item().Year_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_month": {
+													"value": {
+														"value": "@item().Month_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_status": {
+													"value": "Failed",
+													"type": "String"
+												},
+												"sp_param_row_count": {
+													"value": {
+														"value": "@activity('LU_OnPremDataExist').output.firstRow.row_count",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_WaterMarkServer",
+											"type": "LinkedServiceReference"
+										}
+									},
+									{
+										"name": "SP_Processing",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].<StoredProcedureName>",
+											"storedProcedureParameters": {
+												"sp_param_schema_name": {
+													"value": {
+														"value": "@item().Schema_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_table_name": {
+													"value": {
+														"value": "@item().Table_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_year": {
+													"value": {
+														"value": "@item().Year_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_month": {
+													"value": {
+														"value": "@item().Month_Batch",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"sp_param_status": {
+													"value": "Processing",
+													"type": "String"
+												},
+												"sp_param_row_count": {
+													"value": {
+														"value": "0",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_WaterMarkServer",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "LU_OnPremDataExist",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select count(*) as row_count from ', item().Schema_Name, '.', item().Table_Name, ' where year(TxDate)=',item().Year_Batch , ' and month(TxDate)=', item().Month_Batch)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DS_OnPremSQLData",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "IF_WaterMarkTableHasPending",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "FE_SchemaTableName",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(length(activity('LU_ListWaterMarkBatchTable').output.value), 0)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Possales_Backfill_Job",
+							"type": "DatabricksJob",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"jobId": "<JobId>",
+								"jobParameters": {
+									"NB_Year": {
+										"value": "@activity('LU_ListWaterMarkBatchTable').output.value[0].Year_Batch",
+										"type": "Expression"
+									},
+									"NB_Month": {
+										"value": "@activity('LU_ListWaterMarkBatchTable').output.value[0].Month_Batch",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureDataBricks",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-10-02T07:58:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

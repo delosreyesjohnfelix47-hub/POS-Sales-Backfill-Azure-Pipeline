@@ -1,0 +1,13 @@
+{
+	"name": "DS_WaterMarkTableName",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_WaterMarkServer",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,12 @@
+{
+	"name": "LS_Adlsgen2",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"serviceEndpoint": "<StorageAccountUrl>",
+			"accountKind": "StorageV2"
+		}
+	}
+}

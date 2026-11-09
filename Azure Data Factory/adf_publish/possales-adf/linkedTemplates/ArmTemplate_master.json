@@ -1,0 +1,112 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "<AzureDataFactoryName>"
+		},
+		"PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId": {
+			"type": "string",
+			"defaultValue": "<AzureDatabricksJobId>"
+		},
+		"LS_Adlsgen2_properties_typeProperties_serviceEndpoint": {
+			"type": "string",
+			"defaultValue": "<StorageAccountUrl>"
+		},
+		"LS_AzureDataBricks_properties_typeProperties_domain": {
+			"type": "string",
+			"defaultValue": "<AzureDatabricksUrl>"
+		},
+		"LS_AzureDataBricks_properties_typeProperties_workspaceResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/<SubscriptionId>/resourceGroups/<ResourceGroupName>/providers/Microsoft.Databricks/workspaces/<AzureDatabricksWorkspace>"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "<AzureKeyVaultUrl>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "<On-PremSqlServerName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "<On-PremDatabaseName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "<On-PremUserName>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "<AzureSqlServerName>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "<AzureSqlDatabaseName>"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "possales-adf_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_Adlsgen2_properties_typeProperties_serviceEndpoint": {
+						"value": "[parameters('LS_Adlsgen2_properties_typeProperties_serviceEndpoint')]"
+					},
+					"LS_AzureDataBricks_properties_typeProperties_domain": {
+						"value": "[parameters('LS_AzureDataBricks_properties_typeProperties_domain')]"
+					},
+					"LS_AzureDataBricks_properties_typeProperties_workspaceResourceId": {
+						"value": "[parameters('LS_AzureDataBricks_properties_typeProperties_workspaceResourceId')]"
+					},
+					"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+						"value": "[parameters('LS_AzureKeyVault_properties_typeProperties_baseUrl')]"
+					},
+					"LS_WaterMarkServer_properties_typeProperties_server": {
+						"value": "[parameters('LS_WaterMarkServer_properties_typeProperties_server')]"
+					},
+					"LS_WaterMarkServer_properties_typeProperties_database": {
+						"value": "[parameters('LS_WaterMarkServer_properties_typeProperties_database')]"
+					},
+					"LS_OnpremSQLServer_properties_typeProperties_server": {
+						"value": "[parameters('LS_OnpremSQLServer_properties_typeProperties_server')]"
+					},
+					"LS_OnpremSQLServer_properties_typeProperties_database": {
+						"value": "[parameters('LS_OnpremSQLServer_properties_typeProperties_database')]"
+					},
+					"LS_OnpremSQLServer_properties_typeProperties_userName": {
+						"value": "[parameters('LS_OnpremSQLServer_properties_typeProperties_userName')]"
+					},
+					"PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId": {
+						"value": "[parameters('PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

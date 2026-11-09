@@ -1,0 +1,45 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "<AzureDataFactoryName>"
+		},
+		"PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId": {
+			"value": "<AzureDatabricksJobId>"
+		},
+		"LS_Adlsgen2_properties_typeProperties_serviceEndpoint": {
+			"value": "<StorageAccountUrl>"
+		},
+		"LS_AzureDataBricks_properties_typeProperties_domain": {
+			"value": "<AzureDatabricksUrl>"
+		},
+		"LS_AzureDataBricks_properties_typeProperties_workspaceResourceId": {
+			"value": "/subscriptions/<SubscriptionId>/resourceGroups/<ResourceGroupName>/providers/Microsoft.Databricks/workspaces/<AzureDatabricksWorkspace>"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"value": "<AzureKeyVaultUrl>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_server": {
+			"value": "<On-PremSqlServerName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_database": {
+			"value": "<On-PremDatabaseName>"
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_userName": {
+			"value": "<On-PremUserName>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_server": {
+			"value": "<AzureSqlServerName>"
+		},
+		"LS_WaterMarkServer_properties_typeProperties_database": {
+			"value": "<AzureSqlDatabaseName>"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

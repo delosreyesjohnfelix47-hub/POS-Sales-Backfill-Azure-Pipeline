@@ -1,0 +1,184 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string"
+        },
+        "subscriptionId": {
+            "type": "string"
+        },
+        "resourceGroupName": {
+            "type": "string"
+        },
+        "alertEmailAddress": {
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            //ActionGroup
+            "type": "Microsoft.Insights/ActionGroups",
+            "apiVersion": "2023-01-01",
+            "name": "ActionGroup-POS-ADF-Email",
+            "location": "Global",
+            "kind": null,
+            "tags": null,
+            "properties": {
+                "groupShortName": "Fail-Email",
+                "enabled": true,
+                "emailReceivers": [
+                    {
+                        "name": "ADF-Failure-EmailEmail",
+                        "emailAddress": "[parameters('alertEmailAddress')]",
+                        "useCommonAlertSchema": false,
+                        "status": "Enabled"
+                    }
+                ],
+                "smsReceivers": [],
+                "webhookReceivers": [],
+                "eventHubReceivers": [],
+                "itsmReceivers": [],
+                "azureAppPushReceivers": [],
+                "automationRunbookReceivers": [],
+                "voiceReceivers": [],
+                "logicAppReceivers": [],
+                "azureFunctionReceivers": [],
+                "armRoleReceivers": []
+            }
+        },
+        {
+            //Pipeline
+            "name": "PipelineAlert",
+            "type": "Microsoft.Insights/metricAlerts",
+            "apiVersion": "2018-03-01",
+            "location": "global",
+            "tags": {},
+            "properties": {
+                "description": "Notify when pipeline failed",
+                "severity": 2,
+                "enabled": true,
+                "scopes": [
+                    "[resourceId(parameters('subscriptionId'), parameters('resourceGroupName'), 'Microsoft.DataFactory/factories', parameters('factoryName'))]"
+                ],
+                "evaluationFrequency": "PT1M",
+                "windowSize": "PT15M",
+                "criteria": {
+                    "allOf": [
+                        {
+                            "threshold": 1,
+                            "name": "PipelineFailedRuns",
+                            "metricNamespace": "Microsoft.DataFactory/factories",
+                            "metricName": "PipelineFailedRuns",
+                            "dimensions": [
+                                {
+                                    "name": "Name",
+                                    "operator": "Include",
+                                    "values": [
+                                        "PL_Possales_Backfill"
+                                    ]
+                                },
+                                {
+                                    "name": "FailureType",
+                                    "operator": "Include",
+                                    "values": [
+                                        "UserError",
+                                        "SystemError",
+                                        "BadGateway"
+                                    ]
+                                }
+                            ],
+                            "operator": "GreaterThanOrEqual",
+                            "timeAggregation": "Total",
+                            "criterionType": "StaticThresholdCriterion"
+                        }
+                    ],
+                    "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria"
+                },
+                "actions": [
+                    {
+                        "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ActionGroup-POS-ADF-Email')]",
+                        "webHookProperties": {}
+                    }
+                ]
+            }
+        },
+        {
+            //Activity
+            "name": "ActivityAlert",
+            "type": "Microsoft.Insights/metricAlerts",
+            "apiVersion": "2018-03-01",
+            "location": "global",
+            "tags": {},
+            "properties": {
+                "description": "",
+                "severity": 2,
+                "enabled": true,
+                "scopes": [
+                    "[resourceId(parameters('subscriptionId'), parameters('resourceGroupName'), 'Microsoft.DataFactory/factories', parameters('factoryName'))]"
+                ],
+                "evaluationFrequency": "PT1M",
+                "windowSize": "PT15M",
+                "criteria": {
+                    "allOf": [
+                        {
+                            "threshold": 1,
+                            "name": "7392f945-cc04-48bd-bb3e-cdb8a5a39cc6",
+                            "metricNamespace": "Microsoft.DataFactory/factories",
+                            "metricName": "ActivityFailedRuns",
+                            "dimensions": [
+                                {
+                                    "name": "ActivityType",
+                                    "operator": "Include",
+                                    "values": [
+                                        "Lookup",
+                                        "ForEach",
+                                        "IfCondition",
+                                        "DatabricksJob"
+                                    ]
+                                },
+                                {
+                                    "name": "Name",
+                                    "operator": "Include",
+                                    "values": [
+                                        "LU_ListWaterMarkBatchTable",
+                                        "FE_SchemaTableName",
+                                        "If Condition2",
+                                        "LU_OnPremDataExist",
+                                        "Possales_Backfill_Job"
+                                    ]
+                                },
+                                {
+                                    "name": "PipelineName",
+                                    "operator": "Include",
+                                    "values": [
+                                        "PL_Possales_Backfill"
+                                    ]
+                                },
+                                {
+                                    "name": "FailureType",
+                                    "operator": "Include",
+                                    "values": [
+                                        "UserError",
+                                        "SystemError",
+                                        "BadGateway"
+                                    ]
+                                }
+                            ],
+                            "operator": "GreaterThanOrEqual",
+                            "timeAggregation": "Total",
+                            "criterionType": "StaticThresholdCriterion"
+                        }
+                    ],
+                    "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria"
+                },
+                "actions": [
+                    {
+                        "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ActionGroup-POS-ADF-Email')]",
+                        "webHookProperties": {}
+                    }
+                ]
+            }
+        }   
+    ]
+}

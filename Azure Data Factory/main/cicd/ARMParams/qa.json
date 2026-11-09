@@ -1,0 +1,39 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": ""
+		},
+		"LS_Adlsgen2_properties_typeProperties_serviceEndpoint": {
+			"value": ""
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"value": ""
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_server": {
+			"value": ""
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_database": {
+			"value": ""
+		},
+		"LS_OnpremSQLServer_properties_typeProperties_userName": {
+			"value": ""
+		},
+		"LS_WaterMarkServer_properties_typeProperties_server": {
+			"value": ""
+		},
+		"LS_WaterMarkServer_properties_typeProperties_database": {
+			"value": ""
+		},
+		"LS_AzureDataBricks_properties_typeProperties_domain": {
+    		"value": ""
+		},
+		"LS_AzureDataBricks_properties_typeProperties_workspaceResourceId": {
+    		"value": ""
+		},
+		"PL_Possales_Backfill_properties_2_typeProperties_0_typeProperties_jobId": {
+    		"value": ""
+		}
+	}
+}
