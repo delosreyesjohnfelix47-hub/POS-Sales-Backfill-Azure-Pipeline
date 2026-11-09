@@ -30,9 +30,9 @@ Azure SQL Water Mark Table:
 
 | Schema_Name | Table_Name | Year_Batch | Month_Batch | Row_Count | Raw_Status |
 |-------------|------------|------------|------------|-----------|------------|
-| sales | dtl_order | 2024 | 02 | 692 | Success |
-| sales | dtl_payment | 2024 | 02 | 319 | Success |
-| sales | hdr_invoice | 2024 | 02 | 134 | Success |
+| sales | dtl_order | 2024 | 02 | 0 | Pending |
+| sales | dtl_payment | 2024 | 02 | 0 | Pending |
+| sales | hdr_invoice | 2024 | 02 | 0 | Pending |
 
 Azure Key Vault:
 
@@ -53,19 +53,22 @@ Pipeline:
 2. For Each Activity loops through the 3 tables in parallel (dtl_order, dtl_payment, hdr_invoice)
 3. Look Up Activity to check how many row does the on-prem table have.
 4. If Condition Activity. Check look up activity of on-prem table if have rows.
-  - if true
-      run watermark stored procedure to make Raw_status as Processing
+  - If true
+      Run watermark stored procedure to update make Raw_status as Processing.
       Copy Data Activity to ingest on-prem sql server data to raw container as parquet.
-      run watermark stored procedure to Raw_status as Success or Failed if there are errors.
-  - if false
-      run watermark stored procedure to make Raw_status as No Data.
+      Run watermark stored procedure to update Row_count & Raw_status as Success or Failed if there are errors.
+  - If false
+      Run watermark stored procedure to make Raw_status as No Data.
 5. If condition Activity. Check look up activity of Azure Sql Watermark if have rows.
-  - if true
-      run Job Activity Azure Databricks Job.
-  - if false
-      do nothing.
+  - If true
+      Run Job Activity Azure Databricks Job.
+  - If false
+      Do nothing.
 
-Azure Data Lake Storage Gen2: Landing zone for raw parquet files, with container of config, bronze, silver and gold.
+Azure Data Lake Storage Gen2: 
+
+Landing zone of data with container of config, raw, bronze, silver and gold
+
 Adls Gen 2 Structure:
 
 Raw:
@@ -125,9 +128,9 @@ Catalog:
    
 Notebooks:
 - Create Unity Catalog: Create Storage Credential, External Location, Create Catalog, Create Schema and Grant Permissions(external location, Catalog and Schemas)
-- Raw To Bronze: Process Raw container parquets into bronze delta
-- Bronze To Silver: Process bronze delta then clean and transform it to silver delta
-- Silver To Gold: Process silver delta to create dimension and fact tables for gold
+- Raw To Bronze: Process parquet file from Raw container into bronze delta
+- Bronze To Silver: Process bronze delta file then clean and transform it to silver delta
+- Silver To Gold: Process silver delta file to create dimension(Scd type 1 and Scd Type 2) and fact tables for gold
   
 Job (Possales_Backfill_Job):
   Create Unity Catalog > Raw To Bronze > Bronze To Silver > Silver To Gold
