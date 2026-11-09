@@ -38,7 +38,17 @@ Azure Key Vault:
 
 Secret: On-prem SqlServer password
 
-Azure Data Factory Process:
+Azure Data Factory Set Up:
+
+Trigger:
+
+1. Tumbling Window
+
+Alert & Metrics:
+
+<img width="1033" height="483" alt="image" src="https://github.com/user-attachments/assets/7366db51-f526-4919-90b5-2e57fc5d1b30" />
+
+Pipeline:
 1. Look Up Activity Azure Sql Watermark Table to get tables that are still pending for specific year month.
 2. For Each Activity loops through the 3 tables in parallel (dtl_order, dtl_payment, hdr_invoice)
 3. Look Up Activity to check how many row does the on-prem table have.
